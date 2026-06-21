@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>แบบสอบถามการป้องกันสารเคมี - ต.บึงเนียม</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SweetAlert2 สำหรับแจ้งเตือนสวยงาม -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body { font-family: 'Sarabun', sans-serif; background-color: #f3f4f6; }
+        
+        /* สไตล์สำหรับปุ่มแบบสอบถาม (ซ่อน Radio แล้วสไตล์ Label) */
+        .likert-radio { display: none; }
+        .likert-label {
+            display: flex; align-items: center; justify-content: center;
+            width: 100%; padding: 12px 8px; border: 1px solid #e5e7eb; border-radius: 8px;
+            cursor: pointer; transition: all 0.2s; font-size: 14px; text-align: center;
+            background-color: #ffffff; color: #4b5563; font-weight: 500;
+        }
+        .likert-radio:checked + .likert-label {
+            background-color: #3b82f6; border-color: #3b82f6; color: white; box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.5);
+        }
+        .likert-radio:hover:not(:checked) + .likert-label {
+            background-color: #eff6ff; border-color: #bfdbfe;
+        }
+        
+        /* ตาราง Dashboard */
+        .stat-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .stat-table th, .stat-table td { border: 1px solid #e5e7eb; padding: 8px 12px; text-align: left; }
+        .stat-table th { background-color: #f9fafb; font-weight: 600; }
+        
+        /* Loader */
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3b82f6; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <!-- ==================== CONFIGURATION ==================== -->
+    <script>
+        // *** ให้นำ URL ที่ได้จาก GAS มาวางแทนที่ตรงนี้ ***
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw1RWy3UoMb8_0lV1d0DGr4KXiZpRnasxX2JZXzYfo_8A_mfH5_kQ4AtcUmOerEprAE/exec'; 
+    </script>
+    <!-- ======================================================= -->
+
+    <!-- Navbar -->
+    <nav class="bg-blue-800 text-white shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-leaf text-green-400 text-xl"></i>
+                    <span class="font-bold text-lg hidden sm:block">ระบบเก็บข้อมูลงานวิจัย ต.บึงเนียม</span>
+                    <span class="font-bold text-lg sm:hidden">วิจัย ต.บึงเนียม</span>
+                </div>
+                <div class="flex items-center space-x-1 sm:space-x-4">
+                    <button onclick="switchTab('form')" id="btn-tab-form" class="px-3 py-2 rounded-md text-sm font-medium bg-blue-900 transition"><i class="fa-solid fa-file-pen"></i> <span class="hidden sm:inline">แบบฟอร์ม</span></button>
+                    <button onclick="switchTab('dashboard')" id="btn-tab-dashboard" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition"><i class="fa-solid fa-chart-pie"></i> <span class="hidden sm:inline">วิเคราะห์ผล</span></button>
+                    <button onclick="switchTab('admin')" id="btn-tab-admin" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition"><i class="fa-solid fa-user-shield"></i> <span class="hidden sm:inline">Admin</span></button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="max-w-4xl mx-auto p-4 sm:p-6 mb-20">
+
+        <!-- ==================== VIEW 1: DATA ENTRY FORM ==================== -->
+        <div id="view-form" class="block">
+            <div class="bg-white rounded-xl shadow-md p-6 sm:p-8 mb-6 border-t-4 border-blue-500">
+                <h1 class="text-2xl font-bold text-center text-blue-800 mb-2">แบบสอบถามการสัมภาษณ์</h1>
+                <p class="text-center text-sm text-gray-600 mb-6">เรื่อง ปัจจัยที่มีความสัมพันธ์กับการป้องกันตนเองจากสารเคมีกำจัดศัตรูพืชในเกษตรกร ตำบลบึงเนียม</p>
+                
+                <form id="researchForm" onsubmit="submitForm(event)">
+                    
+                    <!-- โหมดแก้ไขแจ้งเตือน -->
+                    <div id="edit-mode-alert" class="hidden bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6 rounded shadow-sm">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <p class="font-bold"><i class="fa-solid fa-pen-to-square"></i> โหมดแก้ไขข้อมูล</p>
+                                <p class="text-sm">กำลังแก้ไขข้อมูลของ ID: <span id="edit-id-display" class="font-bold"></span> (Row: <span id="edit-row-display"></span>)</p>
+                            </div>
+                            <button type="button" onclick="cancelEdit()" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm">ยกเลิกการแก้ไข</button>
+                        </div>
+                    </div>
+
+                    <input type="hidden" id="action" name="action" value="submit">
+                    <input type="hidden" id="rowNum" name="rowNum" value="">
+
+                    <!-- ข้อมูลเบื้องต้น -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                        <div>
+                            <label class="block text-sm font-semibold mb-1">เลขที่แบบสอบถาม (ID)</label>
+                            <input type="text" id="ID" name="ID" class="w-full border rounded p-2 bg-gray-200 text-gray-700 font-bold focus:outline-none cursor-not-allowed" required readonly value="กำลังโหลด...">
+                        </div>
+                    </div>
+
+                    <!-- ส่วนที่ 1 -->
+                    <h2 class="text-xl font-bold bg-blue-100 p-2 rounded mb-4 text-blue-800"><i class="fa-solid fa-1"></i> ส่วนที่ 1 คุณลักษณะส่วนบุคคล</h2>
+                    <div class="space-y-6">
+                        <!-- GEN -->
+                        <div>
+                            <label class="block font-semibold mb-2">1. เพศ</label>
+                            <div class="flex space-x-4">
+                                <label class="flex items-center space-x-2 cursor-pointer p-3 border rounded hover:bg-gray-50 w-32"><input type="radio" name="GEN" value="1" required class="w-5 h-5 text-blue-600"> <span>ชาย</span></label>
+                                <label class="flex items-center space-x-2 cursor-pointer p-3 border rounded hover:bg-gray-50 w-32"><input type="radio" name="GEN" value="2" class="w-5 h-5 text-blue-600"> <span>หญิง</span></label>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            <!-- AGE -->
+                            <div>
+                                <label class="block font-semibold mb-2">2. อายุ (ปีเต็ม)</label>
+                                <input type="number" name="AGE" class="w-full border rounded p-3 focus:ring focus:ring-blue-200" required min="10" max="100">
+                            </div>
+                            <!-- TIM -->
+                            <div>
+                                <label class="block font-semibold mb-2">5. ระยะเวลาที่ใช้สารเคมี (ปี)</label>
+                                <input type="number" name="TIM" class="w-full border rounded p-3 focus:ring focus:ring-blue-200" required min="0" step="0.1">
+                            </div>
+                            <!-- INC -->
+                            <div>
+                                <label class="block font-semibold mb-2">6. รายได้ครอบครัว (บาท/ปี)</label>
+                                <input type="number" name="INC" class="w-full border rounded p-3 focus:ring focus:ring-blue-200" required min="0">
+                            </div>
+                        </div>
+
+                        <!-- STA -->
+                        <div>
+                            <label class="block font-semibold mb-2">3. สถานภาพสมรส</label>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <label class="flex items-center space-x-2 cursor-pointer p-3 border rounded hover:bg-gray-50"><input type="radio" name="STA" value="1" required class="w-5 h-5"> <span>โสด</span></label>
+                                <label class="flex items-center space-x-2 cursor-pointer p-3 border rounded hover:bg-gray-50"><input type="radio" name="STA" value="2" class="w-5 h-5"> <span>สมรส</span></label>
+                                <label class="flex items-center space-x-2 cursor-pointer p-3 border rounded hover:bg-gray-50"><input type="radio" name="STA" value="3" class="w-5 h-5"> <span>หม้าย/หย่าร้าง/แยกกันอยู่</span></label>
+                            </div>
+                        </div>
+
+                        <!-- EDU -->
+                        <div>
+                            <label class="block font-semibold mb-2">4. ระดับการศึกษาสูงสุด</label>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <label class="flex items-center space-x-2 cursor-pointer p-3 border rounded hover:bg-gray-50"><input type="radio" name="EDU" value="1" required class="w-5 h-5"> <span>ต่ำกว่าประถมศึกษา</span></label>
+                                <label class="flex items-center space-x-2 cursor-pointer p-3 border rounded hover:bg-gray-50"><input type="radio" name="EDU" value="2" class="w-5 h-5"> <span>ประถมศึกษา</span></label>
+                                <label class="flex items-center space-x-2 cursor-pointer p-3 border rounded hover:bg-gray-50"><input type="radio" name="EDU" value="3" class="w-5 h-5"> <span>มัธยมศึกษา</span></label>
+                                <label class="flex items-center space-x-2 cursor-pointer p-3 border rounded hover:bg-gray-50"><input type="radio" name="EDU" value="4" class="w-5 h-5"> <span>สูงกว่ามัธยมศึกษา</span></label>
+                            </div>
+                        </div>
+
+                        <!-- OCU -->
+                        <div>
+                            <label class="block font-semibold mb-2">7. พืชที่ปลูก (ตอบได้มากกว่า 1 ข้อ)</label>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <label class="flex items-center space-x-2 cursor-pointer p-3 border rounded hover:bg-gray-50"><input type="checkbox" name="OCU_1" value="1" class="w-5 h-5 rounded"> <span>ฝรั่ง</span></label>
+                                <label class="flex items-center space-x-2 cursor-pointer p-3 border rounded hover:bg-gray-50"><input type="checkbox" name="OCU_2" value="1" class="w-5 h-5 rounded"> <span>ข้าว</span></label>
+                                <label class="flex items-center space-x-2 cursor-pointer p-3 border rounded hover:bg-gray-50"><input type="checkbox" name="OCU_3" value="1" class="w-5 h-5 rounded"> <span>ข้าวโพด</span></label>
+                                <div class="flex items-center space-x-2 p-3 border rounded hover:bg-gray-50">
+                                    <input type="checkbox" name="OCU_4" id="cb_ocu4" value="1" class="w-5 h-5 rounded"> 
+                                    <span>พืชผัก ระบุ:</span>
+                                    <input type="text" name="OCU_4_TXT" id="txt_ocu4" class="border-b focus:outline-none flex-1 bg-transparent px-1" disabled>
+                                </div>
+                                <div class="flex items-center space-x-2 p-3 border rounded hover:bg-gray-50 sm:col-span-2">
+                                    <input type="checkbox" name="OCU_5" id="cb_ocu5" value="1" class="w-5 h-5 rounded"> 
+                                    <span>อื่นๆ ระบุ:</span>
+                                    <input type="text" name="OCU_5_TXT" id="txt_ocu5" class="border-b focus:outline-none flex-1 bg-transparent px-1" disabled>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ส่วนที่ 2 สร้างด้วย JavaScript -->
+                    <div class="mt-10">
+                        <h2 class="text-xl font-bold bg-green-100 p-2 rounded mb-2 text-green-800"><i class="fa-solid fa-2"></i> ส่วนที่ 2 ความเชื่อด้านสุขภาพฯ (20 ข้อ)</h2>
+                        <p class="text-sm text-gray-600 mb-4">5 = มากที่สุด, 4 = มาก, 3 = ปานกลาง, 2 = น้อย, 1 = น้อยที่สุด</p>
+                        <div id="part2-container" class="space-y-4"></div>
+                    </div>
+
+                    <!-- ส่วนที่ 3 สร้างด้วย JavaScript -->
+                    <div class="mt-10">
+                        <h2 class="text-xl font-bold bg-purple-100 p-2 rounded mb-2 text-purple-800"><i class="fa-solid fa-3"></i> ส่วนที่ 3 การปฏิบัติตนในการป้องกันตนเอง (29 ข้อ)</h2>
+                        <p class="text-sm text-gray-600 mb-4">5 = ปฏิบัติทุกครั้ง, 4 = เกือบทุกครั้ง, 3 = บางครั้ง, 2 = ไม่ค่อยปฏิบัติ, 1 = ไม่เคยปฏิบัติ</p>
+                        <div id="part3-container" class="space-y-4"></div>
+                    </div>
+
+                    <!-- ส่วนที่ 4 ข้อความเชิงคุณภาพ -->
+                    <div class="mt-10 mb-8">
+                        <h2 class="text-xl font-bold bg-orange-100 p-2 rounded mb-4 text-orange-800"><i class="fa-solid fa-4"></i> ส่วนที่ 4 ข้อคำถามเชิงคุณภาพ</h2>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block font-semibold mb-1">1. ปัญหาและอุปสรรค</label>
+                                <textarea name="Qual1" rows="3" class="w-full border rounded p-3 focus:ring focus:ring-blue-200" placeholder="ระบุปัญหาและอุปสรรค..."></textarea>
+                            </div>
+                            <div>
+                                <label class="block font-semibold mb-1">2. แนวทางการป้องกันตนเอง</label>
+                                <textarea name="Qual2" rows="3" class="w-full border rounded p-3 focus:ring focus:ring-blue-200" placeholder="ระบุแนวทางที่ใช้อยู่..."></textarea>
+                            </div>
+                            <div>
+                                <label class="block font-semibold mb-1">3. ข้อเสนอแนะ</label>
+                                <textarea name="Qual3" rows="3" class="w-full border rounded p-3 focus:ring focus:ring-blue-200" placeholder="ข้อเสนอแนะเพิ่มเติม..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="flex justify-center mt-8 border-t pt-6">
+                        <button type="submit" id="submitBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-10 rounded-full shadow-lg transform transition hover:scale-105 text-xl flex items-center space-x-2 w-full sm:w-auto justify-center">
+                            <i class="fa-solid fa-save"></i>
+                            <span id="submitText">บันทึกแบบสอบถาม</span>
+                        </button>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+
+        <!-- ==================== VIEW 2: DASHBOARD ==================== -->
+        <div id="view-dashboard" class="hidden">
+            <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-blue-800"><i class="fa-solid fa-chart-line"></i> Dashboard วิเคราะห์ผล</h2>
+                    <button onclick="fetchDataForDashboard()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded text-sm flex items-center"><i class="fa-solid fa-sync mr-2"></i> รีเฟรชข้อมูล</button>
+                </div>
+                
+                <div id="dashboard-loader" class="hidden py-10">
+                    <div class="loader"></div>
+                    <p class="text-center mt-4 text-gray-500">กำลังประมวลผลข้อมูล...</p>
+                </div>
+
+                <div id="dashboard-content" class="hidden">
+                    <!-- Summary Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                        <div class="bg-blue-50 border border-blue-100 rounded-lg p-4 text-center shadow-sm">
+                            <h3 class="text-lg font-semibold text-blue-800">จำนวนผู้ตอบแบบสอบถาม</h3>
+                            <p class="text-4xl font-bold text-blue-600 mt-2" id="dash-total">0</p>
+                            <p class="text-sm text-gray-500 mt-1">คน</p>
+                        </div>
+                        <div class="bg-green-50 border border-green-100 rounded-lg p-4 text-center shadow-sm">
+                            <h3 class="text-lg font-semibold text-green-800">อายุเฉลี่ย</h3>
+                            <p class="text-4xl font-bold text-green-600 mt-2" id="dash-age-mean">0</p>
+                            <p class="text-sm text-gray-500 mt-1">ปี (SD = <span id="dash-age-sd">0</span>)</p>
+                        </div>
+                        <div class="bg-purple-50 border border-purple-100 rounded-lg p-4 text-center shadow-sm">
+                            <h3 class="text-lg font-semibold text-purple-800">ระยะเวลาใช้สารเคมีเฉลี่ย</h3>
+                            <p class="text-4xl font-bold text-purple-600 mt-2" id="dash-tim-mean">0</p>
+                            <p class="text-sm text-gray-500 mt-1">ปี</p>
+                        </div>
+                    </div>
+
+                    <!-- Part 1 Frequencies -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div>
+                            <h3 class="font-bold text-lg mb-2">เพศ</h3>
+                            <table class="stat-table text-sm">
+                                <thead><tr><th>เพศ</th><th>จำนวน</th><th>ร้อยละ (%)</th></tr></thead>
+                                <tbody id="table-gender"></tbody>
+                            </table>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-lg mb-2">ระดับการศึกษา</h3>
+                            <table class="stat-table text-sm">
+                                <thead><tr><th>ระดับการศึกษา</th><th>จำนวน</th><th>ร้อยละ (%)</th></tr></thead>
+                                <tbody id="table-edu"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Part 2 Mean/SD -->
+                    <div class="mb-8">
+                        <h3 class="font-bold text-xl bg-green-100 p-2 rounded mb-2">ค่าเฉลี่ย ความเชื่อด้านสุขภาพ (ส่วนที่ 2)</h3>
+                        <div class="overflow-x-auto">
+                            <table class="stat-table text-sm w-full">
+                                <thead><tr><th class="w-16">ข้อ</th><th>รายละเอียด</th><th class="w-24 text-center">Mean</th><th class="w-24 text-center">SD</th><th class="w-32 text-center">แปลผล</th></tr></thead>
+                                <tbody id="table-part2"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Part 3 Mean/SD -->
+                    <div class="mb-8">
+                        <h3 class="font-bold text-xl bg-purple-100 p-2 rounded mb-2">ค่าเฉลี่ย การปฏิบัติตน (ส่วนที่ 3)</h3>
+                        <div class="overflow-x-auto">
+                            <table class="stat-table text-sm w-full">
+                                <thead><tr><th class="w-16">ข้อ</th><th>รายละเอียด</th><th class="w-24 text-center">Mean</th><th class="w-24 text-center">SD</th><th class="w-32 text-center">แปลผล</th></tr></thead>
+                                <tbody id="table-part3"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== VIEW 3: ADMIN ==================== -->
+        <div id="view-admin" class="hidden">
+            <!-- Login -->
+            <div id="admin-login" class="bg-white rounded-xl shadow-md p-8 max-w-md mx-auto mt-10">
+                <h2 class="text-2xl font-bold text-center text-gray-800 mb-6"><i class="fa-solid fa-lock text-blue-500"></i> Admin Login</h2>
+                <div class="mb-4">
+                    <label class="block text-sm font-semibold mb-1">Username</label>
+                    <input type="text" id="admin-user" class="w-full border rounded p-2 focus:ring focus:ring-blue-200">
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold mb-1">Password</label>
+                    <input type="password" id="admin-pass" class="w-full border rounded p-2 focus:ring focus:ring-blue-200">
+                </div>
+                <button onclick="loginAdmin()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition">เข้าสู่ระบบ</button>
+            </div>
+
+            <!-- Admin Panel (Data Table) -->
+            <div id="admin-panel" class="hidden bg-white rounded-xl shadow-md p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-red-800"><i class="fa-solid fa-database"></i> จัดการข้อมูล (Admin)</h2>
+                    <button onclick="logoutAdmin()" class="text-red-500 hover:text-red-700 text-sm font-bold border border-red-500 px-3 py-1 rounded">ออกจากระบบ</button>
+                </div>
+                
+                <div class="flex justify-between items-center mb-4">
+                    <button onclick="fetchDataForAdmin()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm"><i class="fa-solid fa-sync"></i> โหลดข้อมูลล่าสุด</button>
+                    <p class="text-sm text-gray-500">คลิกที่แถวเพื่อแก้ไข/เติมข้อมูล missing</p>
+                </div>
+
+                <div id="admin-loader" class="hidden py-10">
+                    <div class="loader"></div>
+                </div>
+
+                <div class="overflow-x-auto border rounded-lg">
+                    <table class="w-full text-sm text-left whitespace-nowrap">
+                        <thead class="bg-gray-100 text-gray-700">
+                            <tr>
+                                <th class="px-4 py-3 border-b">Row</th>
+                                <th class="px-4 py-3 border-b">ID</th>
+                                <th class="px-4 py-3 border-b">วันที่เวลา</th>
+                                <th class="px-4 py-3 border-b">ความสมบูรณ์</th>
+                                <th class="px-4 py-3 border-b text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-table-body" class="divide-y">
+                            <!-- Data populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Script Application Logic -->
+    <script>
+        // Data Structures for dynamic rendering
+        const questionsPart2 = [
+            {group: "การรับรู้โอกาสเสี่ยง", items: [
+                {id: "Ri1", text: "1. การใช้สารเคมีกำจัดศัตรูพืชบ่อย ทำให้เสี่ยงเจ็บป่วยมากขึ้น"},
+                {id: "Ri2", text: "2. แม้ไม่ได้ใช้สารเคมีโดยตรง ก็มีโอกาสได้รับพิษจากสารเคมี"},
+                {id: "Ri3", text: "3. การไม่สวมอุปกรณ์ป้องกัน เพิ่มความเสี่ยงต่อการเจ็บป่วย"},
+                {id: "Ri4", text: "4. การแพ้สารเคมีอาจเกิดจากการไม่สวมอุปกรณ์ป้องกัน"}
+            ]},
+            {group: "การรับรู้ความรุนแรง", items: [
+                {id: "Se1", text: "1. โรคจากสารเคมีกำจัดศัตรูพืชอาจเป็นโรคเรื้อรังและรักษานาน"},
+                {id: "Se2", text: "2. สารเคมีที่มีพิษรุนแรงส่งผลกระทบต่อสุขภาพอย่างมาก"},
+                {id: "Se3", text: "3. การได้รับสารพิษเข้าสู่ร่างกาย อาจเพิ่มความเสี่ยงต่อโรคมะเร็ง"},
+                {id: "Se4", text: "4. แม้ไม่ได้ใช้สารเคมีเอง ก็ยังเสี่ยงได้รับพิษจากสารเคมี"}
+            ]},
+            {group: "การรับรู้ประโยชน์", items: [
+                {id: "Be1", text: "1. การใช้อุปกรณ์ป้องกันช่วยลดการรับสารพิษเข้าสู่ร่างกาย"},
+                {id: "Be2", text: "2. การใช้สารเคมีตามฉลากช่วยให้ปลอดภัยมากขึ้น"},
+                {id: "Be3", text: "3. การผสมสารเคมีตามฉลากช่วยให้ควบคุมศัตรูพืชได้ดี"},
+                {id: "Be4", text: "4. การอ่านฉลากก่อนใช้ช่วยลดความเสี่ยงจากสารเคมี"}
+            ]},
+            {group: "การรับรู้อุปสรรค", items: [
+                {id: "Ba1", text: "1. การสวมอุปกรณ์ป้องกันไม่เป็นอุปสรรคต่อการทำงาน"},
+                {id: "Ba2", text: "2. อุปกรณ์ป้องกันมีราคาเหมาะสม"},
+                {id: "Ba3", text: "3. การใช้อุปกรณ์ป้องกันช่วยเพิ่มความมั่นใจในการทำงาน"},
+                {id: "Ba4", text: "4. อุปกรณ์ป้องกันสามารถหาซื้อได้ง่าย"}
+            ]},
+            {group: "แรงจูงใจด้านสุขภาพ", items: [
+                {id: "In1", text: "1. การใช้สารเคมีอย่างระมัดระวังช่วยให้ปลอดภัยต่อสุขภาพ"},
+                {id: "In2", text: "2. ควรตรวจเลือดหาสารพิษตกค้างอย่างน้อยปีละ1ครั้ง"},
+                {id: "In3", text: "3. คนในครอบครัวควรช่วยสนับสนุนการใช้สารเคมีอย่างปลอดภัย"},
+                {id: "In4", text: "4. สุขภาพที่แข็งแรงสำคัญกว่าการมีเงินจำนวนมาก"}
+            ]}
+        ];
+
+        const questionsPart3 = [
+            {group: "ก่อนใช้ / ผสมสารเคมี", items: [
+                {id: "Pr1", text: "1. เลือกใช้สารเคมีเท่าที่จำเป็น"},
+                {id: "Pr2", text: "2. อ่านฉลากและปฏิบัติตามคำแนะนำก่อนใช้"},
+                {id: "Pr3", text: "3. สวมถุงมือขณะผสมสารเคมี"},
+                {id: "Pr4", text: "4. ฉีดพ่นเมื่อจำเป็นหรือเมื่อเกิดการระบาด"},
+                {id: "Pr5", text: "5. ใช้ไม้หรืออุปกรณ์ในการกวนสารเคมี"},
+                {id: "Pr6", text: "6. ผสมสารเคมีในที่โล่งหรืออยู่เหนือลม"},
+                {id: "Pr7", text: "7. หลีกเลี่ยงการกินอาหารหรือดื่มน้ำระหว่างผสมสารเคมี"},
+                {id: "Pr8", text: "8. ผสมสารเคมีตามอัตราส่วนที่ฉลากกำหนด"},
+                {id: "Pr9", text: "9. หลีกเลี่ยงการผสมสารเคมีหลายชนิดในถังเดียว"},
+                {id: "Pr10", text: "10. ตรวจสอบอุปกรณ์พ่นก่อนใช้งาน"},
+                {id: "Pr11", text: "11. สวมถุงมือระหว่างฉีดพ่น"},
+                {id: "Pr12", text: "12. สวมหน้ากากหรือผ้าปิดปากและจมูกขณะพ่น"}
+            ]},
+            {group: "ขณะฉีดพ่น", items: [
+                {id: "Du1", text: "1. สวมเสื้อแขนยาวและกางเกงขายาว"},
+                {id: "Du2", text: "2. สวมหมวกหรือผ้าโพกศีรษะ"},
+                {id: "Du3", text: "3. สวมแว่นตาหรืออุปกรณ์ป้องกันดวงตา"},
+                {id: "Du4", text: "4. ยืนเหนือลมขณะฉีดพ่น"},
+                {id: "Du5", text: "5. หลีกเลี่ยงการสูบบุหรี่ระหว่างฉีดพ่น"},
+                {id: "Du6", text: "6. ไม่กินอาหารหรือดื่มน้ำระหว่างฉีดพ่น"},
+                {id: "Du7", text: "7. ใช้อุปกรณ์ป้องกันครบถ้วนเมื่อใช้เครื่องพ่นแบบลากสาย"},
+                {id: "Du8", text: "8. ไม่ใช้ปากเป่าหัวพ่นเมื่ออุดตัน"},
+                {id: "Du9", text: "9. หากสารเคมีหกใส่ตัว รีบล้างทันที"}
+            ]},
+            {group: "หลังใช้สารเคมี", items: [
+                {id: "Po1", text: "1. อาบน้ำและสระผมทันทีหลังใช้งาน"},
+                {id: "Po2", text: "2. ซักชุดที่ใช้พ่นทุกครั้งก่อนนำกลับมาใช้"},
+                {id: "Po3", text: "3. แยกซักเสื้อผ้าที่ปนเปื้อนสารเคมี"},
+                {id: "Po4", text: "4. เก็บสารเคมีให้มิดชิดและพ้นมือเด็ก"},
+                {id: "Po5", text: "5. เก็บเกี่ยวผลผลิตตามระยะปลอดภัยที่ฉลากกำหนด"},
+                {id: "Po6", text: "6. ไม่เทน้ำล้างอุปกรณ์ลงแหล่งน้ำ"},
+                {id: "Po7", text: "7. ล้างผักด้วยน้ำไหลหรือล้างหลายครั้ง"},
+                {id: "Po8", text: "8. ผักที่ไม่มั่นใจว่าปลอดภัย ควรล้างหลายครั้งหรือลวกก่อนรับประทาน"}
+            ]}
+        ];
+
+        let allDataCache = []; // เก็บข้อมูลที่โหลดมาเพื่อใช้ใน Admin/Dashboard
+        let nextNewId = "001"; // เก็บ ID อัตโนมัติ
+
+        // Initialize Form
+        window.onload = async () => {
+            renderLikertQuestions('part2-container', questionsPart2);
+            renderLikertQuestions('part3-container', questionsPart3);
+            setupCheckboxInteractions();
+            
+            // สร้าง ID อัตโนมัติ
+            const data = await fetchAllData();
+            if (data && data.length > 0) {
+                let maxId = 0;
+                data.forEach(row => {
+                    const idNum = parseInt(row.ID, 10);
+                    if (!isNaN(idNum) && idNum > maxId) {
+                        maxId = idNum;
+                    }
+                });
+                nextNewId = (maxId + 1).toString().padStart(3, '0');
+            }
+            document.getElementById('ID').value = nextNewId;
+        };
+
+        // Render function for Likert Scale to create clickable buttons
+        function renderLikertQuestions(containerId, data) {
+            const container = document.getElementById(containerId);
+            let html = '';
+            
+            data.forEach(group => {
+                html += `<div class="mb-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <h3 class="font-bold text-gray-700 mb-3 border-b pb-1">${group.group}</h3>`;
+                
+                group.items.forEach(item => {
+                    html += `
+                    <div class="mb-3 hover:bg-gray-100 p-2 rounded transition">
+                        <p class="mb-2 text-sm sm:text-base">${item.text}</p>
+                        <div class="grid grid-cols-5 gap-1 sm:gap-2">
+                            ${[1, 2, 3, 4, 5].map(val => `
+                                <div>
+                                    <input type="radio" id="${item.id}_${val}" name="${item.id}" value="${val}" class="likert-radio" required>
+                                    <label for="${item.id}_${val}" class="likert-label">${val}</label>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>`;
+                });
+                html += `</div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        // Checkbox interaction for "Other" text inputs
+        function setupCheckboxInteractions() {
+            document.getElementById('cb_ocu4').addEventListener('change', function() {
+                const txt = document.getElementById('txt_ocu4');
+                txt.disabled = !this.checked;
+                if(!this.checked) txt.value = '';
+                else txt.focus();
+            });
+            document.getElementById('cb_ocu5').addEventListener('change', function() {
+                const txt = document.getElementById('txt_ocu5');
+                txt.disabled = !this.checked;
+                if(!this.checked) txt.value = '';
+                else txt.focus();
+            });
+        }
+
+        // Tab Switching Logic
+        function switchTab(tabId) {
+            document.getElementById('view-form').classList.add('hidden');
+            document.getElementById('view-dashboard').classList.add('hidden');
+            document.getElementById('view-admin').classList.add('hidden');
+            
+            document.getElementById('btn-tab-form').classList.replace('bg-blue-900', 'hover:bg-blue-700');
+            document.getElementById('btn-tab-dashboard').classList.replace('bg-blue-900', 'hover:bg-blue-700');
+            document.getElementById('btn-tab-admin').classList.replace('bg-blue-900', 'hover:bg-blue-700');
+
+            document.getElementById(`view-${tabId}`).classList.remove('hidden');
+            document.getElementById(`btn-tab-${tabId}`).classList.replace('hover:bg-blue-700', 'bg-blue-900');
+
+            if (tabId === 'dashboard' && allDataCache.length === 0) fetchDataForDashboard();
+        }
+
+        // --- SUBMIT FORM ---
+        async function submitForm(e) {
+            e.preventDefault();
+            if(!SCRIPT_URL || SCRIPT_URL === 'ใส่_URL_WEB_APP_ของท่านที่นี่') {
+                Swal.fire('ข้อผิดพลาด', 'กรุณาใส่ SCRIPT_URL ในโค้ดก่อนใช้งาน', 'error');
+                return;
+            }
+
+            const form = document.getElementById('researchForm');
+            const formData = new FormData(form);
+            const dataObj = {};
+            
+            // Checkbox fixes (FormData only includes checked ones, we need 0 for unchecked if needed, but empty is fine for sheets)
+            for (let [key, value] of formData.entries()) {
+                dataObj[key] = value;
+            }
+
+            // Ensure checkboxes that aren't checked don't cause issues
+            ['OCU_1', 'OCU_2', 'OCU_3', 'OCU_4', 'OCU_5'].forEach(cb => {
+                if(!dataObj[cb]) dataObj[cb] = "";
+            });
+
+            const action = document.getElementById('action').value;
+            const rowNum = document.getElementById('rowNum').value;
+
+            Swal.fire({
+                title: 'กำลังบันทึกข้อมูล...',
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+            });
+
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // Bypass preflight
+                    body: JSON.stringify({ action: action, rowNum: rowNum, formData: dataObj })
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    Swal.fire('สำเร็จ!', result.message, 'success');
+                    
+                    if (action === 'submit') {
+                        nextNewId = (parseInt(nextNewId) + 1).toString().padStart(3, '0');
+                    }
+                    
+                    form.reset();
+                    document.querySelectorAll('.likert-radio').forEach(r => r.checked = false);
+                    cancelEdit(); // Reset edit state if any
+                    window.scrollTo(0, 0);
+                    allDataCache = []; // Clear cache to force reload next time
+                    
+                    document.getElementById('ID').value = nextNewId; // ใส่ ID ใหม่กลับเข้าไป
+                } else {
+                    Swal.fire('ข้อผิดพลาด', result.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error!', error.message);
+                Swal.fire('การเชื่อมต่อล้มเหลว', 'โปรดตรวจสอบ Internet หรือ SCRIPT_URL', 'error');
+            }
+        }
+
+        // --- FETCH DATA ---
+        async function fetchAllData() {
+            if(!SCRIPT_URL || SCRIPT_URL === 'ใส่_URL_WEB_APP_ของท่านที่นี่') {
+                 Swal.fire('ข้อผิดพลาด', 'ยังไม่ได้เชื่อมต่อระบบฐานข้อมูล', 'warning');
+                 return null;
+            }
+            try {
+                const response = await fetch(SCRIPT_URL);
+                const result = await response.json();
+                if(result.status === 'success') {
+                    allDataCache = result.data;
+                    return result.data;
+                }
+                throw new Error(result.message);
+            } catch (error) {
+                console.error(error);
+                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถโหลดข้อมูลได้', 'error');
+                return null;
+            }
+        }
+
+        // --- DASHBOARD LOGIC ---
+        async function fetchDataForDashboard() {
+            document.getElementById('dashboard-content').classList.add('hidden');
+            document.getElementById('dashboard-loader').classList.remove('hidden');
+            
+            const data = await fetchAllData();
+            
+            document.getElementById('dashboard-loader').classList.add('hidden');
+            if(data) {
+                document.getElementById('dashboard-content').classList.remove('hidden');
+                renderDashboard(data);
+            }
+        }
+
+        function renderDashboard(data) {
+            const n = data.length;
+            document.getElementById('dash-total').innerText = n;
+            if(n === 0) return;
+
+            // Stats calculate
+            const ages = data.map(d => Number(d.AGE)).filter(v => !isNaN(v));
+            const tims = data.map(d => Number(d.TIM)).filter(v => !isNaN(v));
+            
+            document.getElementById('dash-age-mean').innerText = calcMean(ages).toFixed(1);
+            document.getElementById('dash-age-sd').innerText = calcSD(ages).toFixed(2);
+            document.getElementById('dash-tim-mean').innerText = calcMean(tims).toFixed(1);
+
+            // Freq tables
+            renderFreqTable('table-gender', data.map(d => d.GEN), {1: 'ชาย', 2: 'หญิง'});
+            renderFreqTable('table-edu', data.map(d => d.EDU), {1: 'ต่ำกว่าประถมฯ', 2: 'ประถมศึกษา', 3: 'มัธยมศึกษา', 4: 'สูงกว่ามัธยมฯ'});
+
+            // Part 2 & 3 Means
+            renderLikertStatsTable('table-part2', data, questionsPart2.map(g => g.items).flat());
+            renderLikertStatsTable('table-part3', data, questionsPart3.map(g => g.items).flat());
+        }
+
+        function calcMean(arr) { return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
+        function calcSD(arr) {
+            const mean = calcMean(arr);
+            return arr.length ? Math.sqrt(arr.reduce((sq, n) => sq + Math.pow(n - mean, 2), 0) / arr.length) : 0;
+        }
+
+        function renderFreqTable(elementId, values, labelMap) {
+            const counts = {};
+            values.forEach(v => { counts[v] = (counts[v] || 0) + 1; });
+            const total = values.length;
+            let html = '';
+            for(const [key, label] of Object.entries(labelMap)) {
+                const count = counts[key] || 0;
+                const pct = total ? ((count/total)*100).toFixed(1) : 0;
+                html += `<tr><td>${label}</td><td>${count}</td><td>${pct}%</td></tr>`;
+            }
+            document.getElementById(elementId).innerHTML = html;
+        }
+
+        function renderLikertStatsTable(elementId, data, questionItems) {
+            let html = '';
+            questionItems.forEach(q => {
+                const values = data.map(d => Number(d[q.id])).filter(v => !isNaN(v) && v > 0);
+                const mean = calcMean(values);
+                const sd = calcSD(values);
+                // Simple interpretation (can be adjusted)
+                let interp = '-';
+                if(mean >= 4.5) interp = 'ระดับ 5';
+                else if(mean >= 3.5) interp = 'ระดับ 4';
+                else if(mean >= 2.5) interp = 'ระดับ 3';
+                else if(mean >= 1.5) interp = 'ระดับ 2';
+                else if(mean > 0) interp = 'ระดับ 1';
+
+                html += `<tr>
+                    <td class="text-center font-semibold text-gray-500">${q.id}</td>
+                    <td class="truncate max-w-xs" title="${q.text}">${q.text.substring(q.text.indexOf('.')+1).trim()}</td>
+                    <td class="text-center font-bold">${mean.toFixed(2)}</td>
+                    <td class="text-center text-gray-500">${sd.toFixed(2)}</td>
+                    <td class="text-center"><span class="px-2 py-1 rounded text-xs bg-gray-100">${interp}</span></td>
+                </tr>`;
+            });
+            document.getElementById(elementId).innerHTML = html;
+        }
+
+        // --- ADMIN LOGIC ---
+        function loginAdmin() {
+            const u = document.getElementById('admin-user').value;
+            const p = document.getElementById('admin-pass').value;
+            if(u === 'admin' && p === '1234') {
+                document.getElementById('admin-login').classList.add('hidden');
+                document.getElementById('admin-panel').classList.remove('hidden');
+                fetchDataForAdmin();
+            } else {
+                Swal.fire('รหัสผ่านผิด', 'เข้าสู่ระบบไม่สำเร็จ', 'error');
+            }
+        }
+
+        function logoutAdmin() {
+            document.getElementById('admin-login').classList.remove('hidden');
+            document.getElementById('admin-panel').classList.add('hidden');
+            document.getElementById('admin-pass').value = '';
+        }
+
+        async function fetchDataForAdmin() {
+            document.getElementById('admin-table-body').innerHTML = '';
+            document.getElementById('admin-loader').classList.remove('hidden');
+            
+            const data = await fetchAllData();
+            
+            document.getElementById('admin-loader').classList.add('hidden');
+            if(data) {
+                renderAdminTable(data);
+            }
+        }
+
+        function renderAdminTable(data) {
+            const tbody = document.getElementById('admin-table-body');
+            let html = '';
+            
+            // Check missing logic (simple count of expected vars)
+            const expectedVars = 20 + 29 + 6; // Part2 + Part3 + roughly Part1
+            
+            data.forEach(row => {
+                let missingCount = 0;
+                Object.keys(row).forEach(k => {
+                    if(row[k] === "" || row[k] === null) missingCount++;
+                });
+                
+                const dateStr = new Date(row.Timestamp).toLocaleString('th-TH', {dateStyle:'short', timeStyle:'short'});
+                let statusBadge = missingCount > 10 ? 
+                    `<span class="bg-red-100 text-red-800 px-2 py-1 rounded text-xs">ขาดเยอะ (${missingCount})</span>` : 
+                    `<span class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">สมบูรณ์</span>`;
+
+                html += `<tr class="hover:bg-gray-50 cursor-pointer" onclick='loadDataToForm(${JSON.stringify(row).replace(/'/g, "&#39;")})'>
+                    <td class="px-4 py-2 border-b">${row.Row || row.rowNum}</td>
+                    <td class="px-4 py-2 border-b font-bold text-blue-600">${row.ID || '-'}</td>
+                    <td class="px-4 py-2 border-b text-gray-500">${dateStr}</td>
+                    <td class="px-4 py-2 border-b">${statusBadge}</td>
+                    <td class="px-4 py-2 border-b text-center">
+                        <button class="bg-yellow-400 hover:bg-yellow-500 text-white p-1 rounded px-3 text-xs"><i class="fa-solid fa-pen"></i> แก้ไข</button>
+                    </td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function loadDataToForm(rowData) {
+            switchTab('form');
+            window.scrollTo(0,0);
+            
+            // Set Edit Mode UI
+            document.getElementById('action').value = 'update';
+            document.getElementById('rowNum').value = rowData.rowNum;
+            document.getElementById('edit-mode-alert').classList.remove('hidden');
+            document.getElementById('edit-id-display').innerText = rowData.ID;
+            document.getElementById('edit-row-display').innerText = rowData.rowNum;
+            document.getElementById('submitText').innerText = 'อัพเดทข้อมูล';
+            document.getElementById('submitBtn').classList.replace('bg-blue-600', 'bg-yellow-500');
+            document.getElementById('submitBtn').classList.replace('hover:bg-blue-700', 'hover:bg-yellow-600');
+
+            const form = document.getElementById('researchForm');
+            
+            // Text / Number inputs
+            const textInputs = ['ID', 'AGE', 'TIM', 'INC', 'OCU_4_TXT', 'OCU_5_TXT', 'Qual1', 'Qual2', 'Qual3'];
+            textInputs.forEach(id => {
+                const el = form.elements[id];
+                if(el) el.value = rowData[id] || '';
+            });
+
+            // Radio inputs (Part 1)
+            const radioGroups = ['GEN', 'STA', 'EDU'];
+            radioGroups.forEach(name => {
+                const val = rowData[name];
+                if(val) {
+                    const el = form.querySelector(`input[name="${name}"][value="${val}"]`);
+                    if(el) el.checked = true;
+                }
+            });
+
+            // Checkboxes (Part 1)
+            ['OCU_1', 'OCU_2', 'OCU_3', 'OCU_4', 'OCU_5'].forEach(name => {
+                const el = form.elements[name];
+                if(el) {
+                    el.checked = (rowData[name] == 1 || rowData[name] == "1");
+                    // trigger change event for text boxes
+                    el.dispatchEvent(new Event('change'));
+                }
+            });
+
+            // Likert Radios (Part 2 & 3)
+            const allLikerts = [...questionsPart2.map(g=>g.items).flat(), ...questionsPart3.map(g=>g.items).flat()];
+            allLikerts.forEach(item => {
+                const val = rowData[item.id];
+                if(val) {
+                    const el = document.getElementById(`${item.id}_${val}`);
+                    if(el) el.checked = true;
+                }
+            });
+        }
+
+        function cancelEdit() {
+            document.getElementById('action').value = 'submit';
+            document.getElementById('rowNum').value = '';
+            document.getElementById('edit-mode-alert').classList.add('hidden');
+            document.getElementById('submitText').innerText = 'บันทึกแบบสอบถาม';
+            document.getElementById('submitBtn').classList.replace('bg-yellow-500', 'bg-blue-600');
+            document.getElementById('submitBtn').classList.replace('hover:bg-yellow-600', 'hover:bg-blue-700');
+            document.getElementById('researchForm').reset();
+            
+            document.getElementById('ID').value = nextNewId; // คืนค่า ID อัตโนมัติกลับมา
+
+            // trigger checkbox logic
+            document.getElementById('cb_ocu4').dispatchEvent(new Event('change'));
+            document.getElementById('cb_ocu5').dispatchEvent(new Event('change'));
+        }
+
+    </script>
+</body>
+</html>
